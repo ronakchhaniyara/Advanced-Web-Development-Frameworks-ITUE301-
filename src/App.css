@@ -176,10 +176,103 @@
   color: #1f2937;
 }
 
+.repo-search-input {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid rgba(15, 76, 129, 0.24);
+  border-radius: 14px;
+  padding: 12px 14px;
+  font: inherit;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.repo-search-input:focus,
+.contact-card input:focus {
+  outline: 2px solid rgba(15, 76, 129, 0.24);
+  outline-offset: 2px;
+}
+
 .dark .contact-card input {
   background: #0f1b2d;
   color: #e5eef8;
   border-color: rgba(148, 197, 255, 0.24);
+}
+
+.dark .repo-search-input {
+  background: #0f1b2d;
+  color: #e5eef8;
+  border-color: rgba(148, 197, 255, 0.24);
+}
+
+.repo-list {
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.repo-card,
+.status-card {
+  background: rgba(15, 76, 129, 0.08);
+  border: 1px solid rgba(15, 76, 129, 0.12);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.repo-card h2,
+.status-card h2 {
+  margin-bottom: 10px;
+}
+
+.repo-card p,
+.status-card p,
+.empty-state {
+  margin-bottom: 0;
+}
+
+.repo-card a {
+  color: #0f4c81;
+  font-weight: 600;
+}
+
+.repo-card a:hover {
+  text-decoration: none;
+}
+
+.dark .repo-card,
+.dark .status-card {
+  background: rgba(140, 200, 255, 0.12);
+  border-color: rgba(148, 197, 255, 0.16);
+}
+
+.dark .repo-card a {
+  color: #9dcfff;
+}
+
+.status-card {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(15, 76, 129, 0.16);
+  border-top-color: #0f4c81;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+.dark .spinner {
+  border-color: rgba(140, 200, 255, 0.16);
+  border-top-color: #8cc8ff;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .footer-card {

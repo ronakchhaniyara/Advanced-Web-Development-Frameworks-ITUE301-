@@ -1,15 +1,85 @@
-function Projects({ projectList }) {
+import { useEffect, useState } from "react";
+import Spinner from "./Spinner";
+import ErrorMessage from "./ErrorMessage";
+import RepoList from "./RepoList";
+
+const GITHUB_API_URL = "https://api.github.com/users/octocat/repos";
+
+function Projects() {
+  const [repos, setRepos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const fetchRepositories = () => {
+    setLoading(true);
+    setError(null);
+
+    fetch(GITHUB_API_URL)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch repositories");
+        }
+
+        return res.json();
+      })
+      .then((data) => {
+        setRepos(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setRepos([]);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    // The empty dependency array runs this fetch once when Projects mounts.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchRepositories();
+  }, []);
+
+  const filteredRepos = repos.filter((repo) =>
+    repo.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) {
+    return <Spinner />;
+  }
+
+  if (error) {
+    return <ErrorMessage message={error} onRetry={fetchRepositories} />;
+  }
+
   return (
     <section className="content-card">
-      <h1>Projects</h1>
+      <h1>My GitHub Projects</h1>
       <p className="section-copy">
-        Three sample projects are listed below as part of the post-lab portfolio extension.
+        This page fetches public repositories from the GitHub REST API and renders
+        them with loading, error, and search states.
       </p>
-      <ul className="project-list">
-        {projectList.map((project) => (
-          <li key={project}>{project}</li>
-        ))}
-      </ul>
+
+      <label className="form-field" htmlFor="repo-search">
+        Search Repositories
+      </label>
+      <input
+        id="repo-search"
+        className="repo-search-input"
+        type="text"
+        placeholder="Search repositories..."
+        value={searchTerm}
+        onChange={(event) => setSearchTerm(event.target.value)}
+      />
+
+      {repos.length === 0 ? (
+        <p className="empty-state">No repositories available.</p>
+      ) : filteredRepos.length === 0 ? (
+        <p className="empty-state">No repositories found.</p>
+      ) : (
+        <RepoList repos={filteredRepos} />
+      )}
     </section>
   );
 }

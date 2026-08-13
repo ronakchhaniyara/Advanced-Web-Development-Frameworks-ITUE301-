@@ -19,12 +19,6 @@ function App() {
     "Data Science",
   ];
 
-  const projects = [
-    "Student Management System",
-    "Portfolio Website",
-    "Library Management Portal",
-  ];
-
   return (
     <div className={isDarkMode ? "app-shell dark" : "app-shell"}>
       <NavBar
@@ -46,7 +40,7 @@ function App() {
               />
             }
           />
-          <Route path="/projects" element={<Projects projectList={projects} />} />
+          <Route path="/projects" element={<Projects />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
