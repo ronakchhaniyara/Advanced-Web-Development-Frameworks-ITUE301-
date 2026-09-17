@@ -3,7 +3,8 @@ import Spinner from "./Spinner";
 import ErrorMessage from "./ErrorMessage";
 import RepoList from "./RepoList";
 
-const GITHUB_API_URL = "https://api.github.com/users/octocat/repos";
+const GITHUB_USERNAME = "ronakchhaniyara";
+const GITHUB_API_URL = `https://api.github.com/users/${GITHUB_USERNAME}/repos?sort=updated&per_page=100`;
 
 function Projects() {
   const [repos, setRepos] = useState([]);
@@ -24,7 +25,13 @@ function Projects() {
         return res.json();
       })
       .then((data) => {
-        setRepos(Array.isArray(data) ? data : []);
+        const ownRepositories = Array.isArray(data)
+          ? data.filter(
+              (repo) => repo.owner?.login === GITHUB_USERNAME && repo.fork === false
+            )
+          : [];
+
+        setRepos(ownRepositories);
       })
       .catch((err) => {
         setError(err.message);
@@ -57,8 +64,8 @@ function Projects() {
     <section className="content-card">
       <h1>My GitHub Projects</h1>
       <p className="section-copy">
-        This page fetches public repositories from the GitHub REST API and renders
-        them with loading, error, and search states.
+        This page fetches public repositories from my GitHub account and renders
+        only my original projects with loading, error, and search states.
       </p>
 
       <label className="form-field" htmlFor="repo-search">
