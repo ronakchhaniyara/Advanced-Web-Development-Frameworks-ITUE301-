@@ -1,21 +1,33 @@
 const express = require("express");
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+const Task = require("./models/Task");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/task_manager_db";
 
-let nextTaskId = 3;
-const tasks = [
-  { id: 1, title: "Complete React practical", completed: true },
-  { id: 2, title: "Build Express CRUD API", completed: false },
-];
+// Connect to MongoDB
+mongoose
+  .connect(MONGO_URI)
+  .then(() => {
+    console.log("MongoDB connected successfully");
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message);
+  });
 
+// Built-in body parser middleware
 app.use(express.json());
 
+// Global logging middleware
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
   next();
 });
 
+// Content-Type validation middleware for write operations
 const requireJsonContentType = (req, res, next) => {
   if (req.method === "POST" || req.method === "PUT") {
     if (!req.is("application/json")) {
@@ -24,49 +36,67 @@ const requireJsonContentType = (req, res, next) => {
       });
     }
   }
-
-  next();
-};
-
-const validateTaskId = (req, res, next) => {
-  const taskId = Number(req.params.id);
-
-  if (!Number.isInteger(taskId) || taskId <= 0) {
-    return res.status(400).json({
-      error: "Task ID must be a positive integer",
-    });
-  }
-
-  req.taskId = taskId;
   next();
 };
 
 app.use(requireJsonContentType);
 
-app.get("/tasks", (req, res) => {
-  res.status(200).json({
-    message: "Tasks fetched successfully",
-    data: tasks,
-  });
+// Validate MongoDB ObjectId middleware
+const validateObjectId = (req, res, next) => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({
+      error: "Invalid task ID format",
+    });
+  }
+  next();
+};
+
+// 1. GET /tasks - Fetch all tasks from MongoDB
+app.get("/tasks", async (req, res, next) => {
+  try {
+    const tasks = await Task.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      message: "Tasks fetched successfully",
+      count: tasks.length,
+      data: tasks,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.post("/tasks", (req, res, next) => {
+// 2. GET /tasks/:id - Fetch a single task by ID (Supplementary Problem 3)
+app.get("/tasks/:id", validateObjectId, async (req, res, next) => {
   try {
-    const { title, completed = false } = req.body;
+    const task = await Task.findById(req.params.id);
 
-    if (!title || typeof title !== "string") {
-      return res.status(400).json({
-        error: "Task title is required and must be a string",
+    if (!task) {
+      return res.status(404).json({
+        error: "Task not found",
       });
     }
 
-    const newTask = {
-      id: nextTaskId++,
-      title: title.trim(),
-      completed: Boolean(completed),
-    };
+    res.status(200).json({
+      message: "Task fetched successfully",
+      data: task,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
-    tasks.push(newTask);
+// 3. POST /tasks - Create a new task in MongoDB
+app.post("/tasks", async (req, res, next) => {
+  try {
+    const { title, description, completed, priority } = req.body;
+
+    const newTask = await Task.create({
+      title,
+      description,
+      completed,
+      priority,
+    });
 
     res.status(201).json({
       message: "Task created successfully",
@@ -77,55 +107,43 @@ app.post("/tasks", (req, res, next) => {
   }
 });
 
-app.put("/tasks/:id", validateTaskId, (req, res, next) => {
+// 4. PUT /tasks/:id - Update an existing task in MongoDB
+app.put("/tasks/:id", validateObjectId, async (req, res, next) => {
   try {
-    const { title, completed } = req.body;
-    const taskIndex = tasks.findIndex((task) => task.id === req.taskId);
+    const updatedTask = await Task.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      {
+        returnDocument: "after",
+        runValidators: true,
+      }
+    );
 
-    if (taskIndex === -1) {
+    if (!updatedTask) {
       return res.status(404).json({
         error: "Task not found",
       });
     }
 
-    if (title !== undefined && typeof title !== "string") {
-      return res.status(400).json({
-        error: "Task title must be a string",
-      });
-    }
-
-    if (completed !== undefined && typeof completed !== "boolean") {
-      return res.status(400).json({
-        error: "Completed must be a boolean value",
-      });
-    }
-
-    tasks[taskIndex] = {
-      ...tasks[taskIndex],
-      ...(title !== undefined ? { title: title.trim() } : {}),
-      ...(completed !== undefined ? { completed } : {}),
-    };
-
     res.status(200).json({
       message: "Task updated successfully",
-      data: tasks[taskIndex],
+      data: updatedTask,
     });
   } catch (error) {
     next(error);
   }
 });
 
-app.delete("/tasks/:id", validateTaskId, (req, res, next) => {
+// 5. DELETE /tasks/:id - Delete a task from MongoDB
+app.delete("/tasks/:id", validateObjectId, async (req, res, next) => {
   try {
-    const taskIndex = tasks.findIndex((task) => task.id === req.taskId);
+    const deletedTask = await Task.findByIdAndDelete(req.params.id);
 
-    if (taskIndex === -1) {
+    if (!deletedTask) {
       return res.status(404).json({
         error: "Task not found",
       });
     }
-
-    const deletedTask = tasks.splice(taskIndex, 1)[0];
 
     res.status(200).json({
       message: "Task deleted successfully",
@@ -136,6 +154,7 @@ app.delete("/tasks/:id", validateTaskId, (req, res, next) => {
   }
 });
 
+// 404 Route Handler for undefined endpoints
 app.use((req, res) => {
   res.status(404).json({
     error: "Route not found",
@@ -143,13 +162,30 @@ app.use((req, res) => {
   });
 });
 
+// Centralized Error Handling Middleware (Structured JSON for validation errors)
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  if (err.name === "ValidationError") {
+    const details = Object.values(err.errors).map((item) => item.message);
+    return res.status(400).json({
+      error: "Validation Error",
+      details,
+    });
+  }
+
+  if (err.name === "CastError") {
+    return res.status(400).json({
+      error: "Invalid task ID format",
+    });
+  }
+
+  console.error("Unhandled Error:", err);
   res.status(500).json({
-    error: "Something went wrong",
+    error: "Internal Server Error",
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+module.exports = { app, server };
