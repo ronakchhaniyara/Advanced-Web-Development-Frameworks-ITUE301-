@@ -1,39 +1,64 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const cors = require("cors");
 require("dotenv").config();
 
-const Task = require("./models/Task");
+// Ensure event listeners are registered at server startup (Practical 10)
+require("./events/taskListeners");
+
+const taskRoutes = require("./routes/taskRoutes");
+const authRoutes = require("./routes/authRoutes");
+const aiRoutes = require("./routes/aiRoutes");
+const systemRoutes = require("./routes/systemRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/task_manager_db";
+const MONGO_URI =
+  process.env.MONGO_URI || "mongodb://127.0.0.1:27017/task_manager_db";
 
 // Connect to MongoDB
-mongoose
-  .connect(MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected successfully");
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err.message);
-  });
+if (process.env.NODE_ENV !== "test") {
+  mongoose
+    .connect(MONGO_URI, {
+      driverInfo: { name: "Mongoose", version: "9.10.1" },
+    })
+    .then(() => {
+      console.log(`MongoDB connected successfully to ${MONGO_URI}`);
+    })
+    .catch((err) => {
+      console.error("MongoDB connection error:", err.message);
+    });
+}
 
-// Built-in body parser middleware
+// 1. CORS Middleware (Practical 6: allow frontend at localhost:5173 to communicate with API)
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Cache"],
+    exposedHeaders: ["X-Cache"],
+  })
+);
+
+// 2. Built-in body parser middleware
 app.use(express.json());
 
-// Global logging middleware
+// 3. Global logging middleware (Practical 4)
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
   next();
 });
 
-// Content-Type validation middleware for write operations
+// 4. Content-Type validation middleware for write operations (Practical 4 Supplementary)
 const requireJsonContentType = (req, res, next) => {
   if (req.method === "POST" || req.method === "PUT") {
-    if (!req.is("application/json")) {
-      return res.status(400).json({
-        error: "Content-Type must be application/json",
-      });
+    // If request has a body, check Content-Type
+    if (req.headers["content-length"] && req.headers["content-length"] !== "0") {
+      if (!req.is("application/json")) {
+        return res.status(400).json({
+          error: "Content-Type must be application/json",
+        });
+      }
     }
   }
   next();
@@ -41,118 +66,16 @@ const requireJsonContentType = (req, res, next) => {
 
 app.use(requireJsonContentType);
 
-// Validate MongoDB ObjectId middleware
-const validateObjectId = (req, res, next) => {
-  const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({
-      error: "Invalid task ID format",
-    });
-  }
-  next();
-};
+// Route mount points
+app.use("/tasks", taskRoutes);
+app.use("/api/tasks", taskRoutes); // Alias
+app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes); // Alias
+app.use("/api/ai", aiRoutes);
+app.use("/api/system", systemRoutes);
 
-// 1. GET /tasks - Fetch all tasks from MongoDB
-app.get("/tasks", async (req, res, next) => {
-  try {
-    const tasks = await Task.find().sort({ createdAt: -1 });
-    res.status(200).json({
-      message: "Tasks fetched successfully",
-      count: tasks.length,
-      data: tasks,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 2. GET /tasks/:id - Fetch a single task by ID (Supplementary Problem 3)
-app.get("/tasks/:id", validateObjectId, async (req, res, next) => {
-  try {
-    const task = await Task.findById(req.params.id);
-
-    if (!task) {
-      return res.status(404).json({
-        error: "Task not found",
-      });
-    }
-
-    res.status(200).json({
-      message: "Task fetched successfully",
-      data: task,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 3. POST /tasks - Create a new task in MongoDB
-app.post("/tasks", async (req, res, next) => {
-  try {
-    const { title, description, completed, priority } = req.body;
-
-    const newTask = await Task.create({
-      title,
-      description,
-      completed,
-      priority,
-    });
-
-    res.status(201).json({
-      message: "Task created successfully",
-      data: newTask,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 4. PUT /tasks/:id - Update an existing task in MongoDB
-app.put("/tasks/:id", validateObjectId, async (req, res, next) => {
-  try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        returnDocument: "after",
-        runValidators: true,
-      }
-    );
-
-    if (!updatedTask) {
-      return res.status(404).json({
-        error: "Task not found",
-      });
-    }
-
-    res.status(200).json({
-      message: "Task updated successfully",
-      data: updatedTask,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// 5. DELETE /tasks/:id - Delete a task from MongoDB
-app.delete("/tasks/:id", validateObjectId, async (req, res, next) => {
-  try {
-    const deletedTask = await Task.findByIdAndDelete(req.params.id);
-
-    if (!deletedTask) {
-      return res.status(404).json({
-        error: "Task not found",
-      });
-    }
-
-    res.status(200).json({
-      message: "Task deleted successfully",
-      data: deletedTask,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+// Direct top-level aliases for Practical 7 Postman compatibility (/register, /login, /me)
+app.use("/", authRoutes);
 
 // 404 Route Handler for undefined endpoints
 app.use((req, res) => {
@@ -162,7 +85,7 @@ app.use((req, res) => {
   });
 });
 
-// Centralized Error Handling Middleware (Structured JSON for validation errors)
+// Centralized Error Handling Middleware (Practical 4 & 5)
 app.use((err, req, res, next) => {
   if (err.name === "ValidationError") {
     const details = Object.values(err.errors).map((item) => item.message);
@@ -181,11 +104,15 @@ app.use((err, req, res, next) => {
   console.error("Unhandled Error:", err);
   res.status(500).json({
     error: "Internal Server Error",
+    message: err.message || "An unexpected error occurred",
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+let server = null;
+if (process.env.NODE_ENV !== "test") {
+  server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = { app, server };

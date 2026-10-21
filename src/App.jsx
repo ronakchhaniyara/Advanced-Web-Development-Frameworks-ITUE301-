@@ -1,51 +1,85 @@
+import { lazy, Suspense, useState } from "react";
 import { Route, Routes } from "react-router-dom";
-import { useState } from "react";
 import NavBar from "./components/NavBar";
-import Home from "./components/Home";
-import Projects from "./components/Projects";
-import Contact from "./components/Contact";
-import NotFound from "./components/NotFound";
+import PageLoader from "./components/PageLoader";
+import ToastContainer from "./components/Toast";
+import AuthModal from "./components/AuthModal";
+import { AuthProvider } from "./context/AuthContext";
 import "./App.css";
 
-function App() {
+// Practical 8: Performance Optimization via Route-Based Code Splitting
+const Home = lazy(() => import("./components/Home"));
+const TaskManager = lazy(() => import("./components/TaskManager"));
+const Projects = lazy(() => import("./components/Projects"));
+const AnalyticsDashboard = lazy(() => import("./components/AnalyticsDashboard"));
+const SystemActivity = lazy(() => import("./components/SystemActivity"));
+const Contact = lazy(() => import("./components/Contact"));
+const NotFound = lazy(() => import("./components/NotFound"));
+
+function AppContent() {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const skills = [
-    "HTML",
-    "CSS",
-    "JavaScript",
-    "React",
-    "Python",
-    "Data Science",
+    "HTML5",
+    "CSS3 / Vanilla CSS",
+    "JavaScript (ES6+)",
+    "React 19 & Router",
+    "Node.js & Express",
+    "MongoDB & Mongoose",
+    "RESTful API & Caching",
+    "Docker & CI/CD Pipelines",
+    "AI APIs (Gemini/OpenAI)",
   ];
 
   return (
     <div className={isDarkMode ? "app-shell dark" : "app-shell"}>
       <NavBar
         isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode((currentMode) => !currentMode)}
+        onToggleTheme={() => setIsDarkMode((prev) => !prev)}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
       />
 
       <main className="page-content">
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Home
-                name="Ronak Chhaniyara"
-                themeColor="#0f4c81"
-                bio="I am a B.Tech IT student building reusable React interfaces and learning modern frontend development."
-                skillList={skills}
-                email="ronak@example.com"
-              />
-            }
-          />
-          <Route path="/projects" element={<Projects />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<PageLoader text="Loading page bundle..." />}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Home
+                  name="Ronak Chhaniyara"
+                  themeColor="#0f4c81"
+                  bio="I am a B.Tech IT student specializing in full-stack web architectures, reactive client applications, scalable Node/Express microservices, and AI integrations."
+                  skillList={skills}
+                  email="ronak@example.com"
+                />
+              }
+            />
+            <Route path="/tasks" element={<TaskManager />} />
+            <Route path="/projects" element={<Projects />} />
+            <Route path="/analytics" element={<AnalyticsDashboard />} />
+            <Route path="/activity" element={<SystemActivity />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </main>
+
+      {/* Floating Notifications and Auth Modal */}
+      <ToastContainer />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

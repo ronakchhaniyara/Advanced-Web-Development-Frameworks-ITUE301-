@@ -1,0 +1,54 @@
+name: Full Stack CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongosh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: "npm"
+
+      - name: Install Frontend Dependencies
+        run: npm ci || npm install
+
+      - name: Verify Frontend Build
+        run: npm run build
+
+      - name: Install Backend Dependencies
+        working-directory: ./task-manager-api
+        run: npm ci || npm install
+
+      - name: Run Backend Integration & Unit Tests (Jest + Supertest)
+        working-directory: ./task-manager-api
+        env:
+          MONGO_URI: mongodb://127.0.0.1:27017/task_manager_test_db
+          JWT_SECRET: ci_pipeline_jwt_secret_token_12345
+          NODE_ENV: test
+        run: npm test
+
+      - name: Test Summary & Pass Status
+        if: success()
+        run: echo "CI Pipeline successfully passed all frontend build checks and backend integration tests!"

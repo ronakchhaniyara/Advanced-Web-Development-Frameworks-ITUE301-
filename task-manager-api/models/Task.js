@@ -24,6 +24,11 @@ const taskSchema = new mongoose.Schema(
       },
       default: "medium",
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     createdAt: {
       type: Date,
       default: Date.now,
@@ -34,7 +39,7 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
-// Supplementary Problem: Pre-save hook that automatically trims whitespace from title
+// Pre-save hook: automatically trims whitespace from title
 taskSchema.pre("save", function () {
   if (typeof this.title === "string") {
     this.title = this.title.trim();
